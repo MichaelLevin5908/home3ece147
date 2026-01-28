@@ -34,11 +34,17 @@ def affine_forward(x, w, b):
   # ================================================================ #
   # YOUR CODE HERE:
   #   Calculate the output of the forward pass.  Notice the dimensions
-  #   of w are D x M, which is the transpose of what we did in earlier 
+  #   of w are D x M, which is the transpose of what we did in earlier
   #   assignments.
   # ================================================================ #
 
-  pass
+  # Reshape x to (N, D) where D = d_1 * ... * d_k
+  N = x.shape[0]
+  D = np.prod(x.shape[1:])
+  x_reshaped = x.reshape(N, D)
+
+  # Compute output: out = x * w + b
+  out = x_reshaped.dot(w) + b
 
   # ================================================================ #
   # END YOUR CODE HERE
@@ -76,12 +82,25 @@ def affine_backward(dout, cache):
   # dw should be D x M; it relates to dout through multiplication with x, which is N x D after reshaping
   # db should be M; it is just the sum over dout examples
 
-  pass
+  # Reshape x to (N, D)
+  N = x.shape[0]
+  D = np.prod(x.shape[1:])
+  x_reshaped = x.reshape(N, D)
+
+  # Compute gradients
+  # dx = dout * w^T, then reshape back to original x shape
+  dx = dout.dot(w.T).reshape(x.shape)
+
+  # dw = x^T * dout
+  dw = x_reshaped.T.dot(dout)
+
+  # db = sum over examples (sum over axis 0)
+  db = np.sum(dout, axis=0)
 
   # ================================================================ #
   # END YOUR CODE HERE
   # ================================================================ #
-  
+
   return dx, dw, db
 
 def relu_forward(x):
@@ -100,11 +119,12 @@ def relu_forward(x):
   #   Implement the ReLU forward pass.
   # ================================================================ #
 
-  pass
+  out = np.maximum(0, x)
+
   # ================================================================ #
   # END YOUR CODE HERE
   # ================================================================ #
- 
+
   cache = x
   return out, cache
 
@@ -128,12 +148,13 @@ def relu_backward(dout, cache):
   # ================================================================ #
 
   # ReLU directs linearly to those > 0
-  pass
-    
+  # Gradient flows through where x > 0
+  dx = dout * (x > 0)
+
   # ================================================================ #
   # END YOUR CODE HERE
   # ================================================================ #
- 
+
   return dx
 
 def svm_loss(x, y):
