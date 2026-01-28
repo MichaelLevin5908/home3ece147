@@ -82,15 +82,22 @@ class TwoLayerNet(object):
 
     # ================================================================ #
     # YOUR CODE HERE:
-	#   Calculate the output scores of the neural network.  The result
-	#   should be (N, C). As stated in the description for this class,
-	#	there should not be a ReLU layer after the second FC layer.
-	#	The output of the second FC layer is the output scores. Do not
-	#	use a for loop in your implementation.
+    #   Calculate the output scores of the neural network.  The result
+    #   should be (N, C). As stated in the description for this class,
+    #   there should not be a ReLU layer after the second FC layer.
+    #   The output of the second FC layer is the output scores. Do not
+    #   use a for loop in your implementation.
     # ================================================================ #
 
-    pass
-    
+    # First layer: X (N, D) @ W1.T (D, H) + b1 = (N, H)
+    hidden = X.dot(W1.T) + b1
+
+    # ReLU activation
+    hidden_relu = np.maximum(0, hidden)
+
+    # Second layer: hidden_relu (N, H) @ W2.T (H, C) + b2 = (N, C)
+    scores = hidden_relu.dot(W2.T) + b2
+
     # ================================================================ #
     # END YOUR CODE HERE
     # ================================================================ #
@@ -105,14 +112,27 @@ class TwoLayerNet(object):
 
     # ================================================================ #
     # YOUR CODE HERE:
-	#   Calculate the loss of the neural network.  This includes the 
-	# 	softmax loss and the L2 regularization for W1 and W2. Store the 
-	#	total loss in teh variable loss.  Multiply the regularization
-	# 	loss by 0.5 (in addition to the factor reg).
-	# ================================================================ #
+    #   Calculate the loss of the neural network.  This includes the
+    #   softmax loss and the L2 regularization for W1 and W2. Store the
+    #   total loss in the variable loss.  Multiply the regularization
+    #   loss by 0.5 (in addition to the factor reg).
+    # ================================================================ #
 
-    # scores is num_examples by num_classes
- 	pass
+    # Compute softmax loss
+    # Shift scores for numerical stability
+    scores_shifted = scores - np.max(scores, axis=1, keepdims=True)
+    exp_scores = np.exp(scores_shifted)
+    probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+
+    # Cross-entropy loss
+    correct_log_probs = -np.log(probs[np.arange(N), y])
+    data_loss = np.sum(correct_log_probs) / N
+
+    # L2 regularization loss
+    reg_loss = 0.5 * reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
+
+    loss = data_loss + reg_loss
+
     # ================================================================ #
     # END YOUR CODE HERE
     # ================================================================ #
@@ -121,13 +141,35 @@ class TwoLayerNet(object):
 
     # ================================================================ #
     # YOUR CODE HERE:
-	# 	Implement the backward pass.  Compute the derivatives of the 
-	# 	weights and the biases.  Store the results in the grads
-	#	dictionary.  e.g., grads['W1'] should store the gradient for 
-	# 	W1, and be of the same size as W1.
-	# ================================================================ #
+    #   Implement the backward pass.  Compute the derivatives of the
+    #   weights and the biases.  Store the results in the grads
+    #   dictionary.  e.g., grads['W1'] should store the gradient for
+    #   W1, and be of the same size as W1.
+    # ================================================================ #
 
-	pass
+    # Gradient of softmax loss w.r.t. scores
+    dscores = probs.copy()
+    dscores[np.arange(N), y] -= 1
+    dscores /= N
+
+    # Backprop into W2 and b2
+    # scores = hidden_relu @ W2.T + b2
+    # dW2 = dscores.T @ hidden_relu (shape: C x H)
+    grads['W2'] = dscores.T.dot(hidden_relu) + reg * W2
+    grads['b2'] = np.sum(dscores, axis=0)
+
+    # Backprop into hidden_relu
+    # dhidden_relu = dscores @ W2 (shape: N x H)
+    dhidden_relu = dscores.dot(W2)
+
+    # Backprop through ReLU
+    dhidden = dhidden_relu * (hidden > 0)
+
+    # Backprop into W1 and b1
+    # hidden = X @ W1.T + b1
+    # dW1 = dhidden.T @ X (shape: H x D)
+    grads['W1'] = dhidden.T.dot(X) + reg * W1
+    grads['b1'] = np.sum(dhidden, axis=0)
 
     # ================================================================ #
     # END YOUR CODE HERE
@@ -170,9 +212,13 @@ class TwoLayerNet(object):
 
       # ================================================================ #
       # YOUR CODE HERE:
-  	  # 	Create a minibatch by sampling batch_size samples randomly.
-  	  # ================================================================ #
-  	  pass
+      #   Create a minibatch by sampling batch_size samples randomly.
+      # ================================================================ #
+
+      # Randomly sample batch_size indices
+      batch_indices = np.random.choice(num_train, batch_size, replace=True)
+      X_batch = X[batch_indices]
+      y_batch = y[batch_indices]
 
       # ================================================================ #
       # END YOUR CODE HERE
@@ -184,11 +230,14 @@ class TwoLayerNet(object):
 
       # ================================================================ #
       # YOUR CODE HERE:
-  	  # 	Perform a gradient descent step using the minibatch to update
-	  # 	all parameters (i.e., W1, W2, b1, and b2).
-  	  # ================================================================ #
+      #   Perform a gradient descent step using the minibatch to update
+      #   all parameters (i.e., W1, W2, b1, and b2).
+      # ================================================================ #
 
-  	  pass
+      self.params['W1'] -= learning_rate * grads['W1']
+      self.params['b1'] -= learning_rate * grads['b1']
+      self.params['W2'] -= learning_rate * grads['W2']
+      self.params['b2'] -= learning_rate * grads['b2']
 
       # ================================================================ #
       # END YOUR CODE HERE
@@ -233,10 +282,14 @@ class TwoLayerNet(object):
 
     # ================================================================ #
     # YOUR CODE HERE:
-    # 	Predict the class given the input data.
+    #   Predict the class given the input data.
     # ================================================================ #
-    pass
 
+    # Forward pass to get scores
+    scores = self.loss(X)
+
+    # Predict the class with highest score
+    y_pred = np.argmax(scores, axis=1)
 
     # ================================================================ #
     # END YOUR CODE HERE

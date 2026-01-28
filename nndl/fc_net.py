@@ -48,7 +48,7 @@ class TwoLayerNet(object):
     
     # ================================================================ #
     # YOUR CODE HERE:
-    #   Initialize W1, W2, b1, and b2.  Store these as self.params['W1'], 
+    #   Initialize W1, W2, b1, and b2.  Store these as self.params['W1'],
     #   self.params['W2'], self.params['b1'] and self.params['b2']. The
     #   biases are initialized to zero and the weights are initialized
     #   so that each parameter has mean 0 and standard deviation weight_scale.
@@ -56,7 +56,10 @@ class TwoLayerNet(object):
     #   dimensions of W2 should be (hidden_dims, num_classes)
     # ================================================================ #
 
-    pass
+    self.params['W1'] = weight_scale * np.random.randn(input_dim, hidden_dims)
+    self.params['b1'] = np.zeros(hidden_dims)
+    self.params['W2'] = weight_scale * np.random.randn(hidden_dims, num_classes)
+    self.params['b2'] = np.zeros(num_classes)
 
     # ================================================================ #
     # END YOUR CODE HERE
@@ -88,13 +91,21 @@ class TwoLayerNet(object):
     #   Implement the forward pass of the two-layer neural network. Store
     #   the class scores as the variable 'scores'.  Be sure to use the layers
     #   you prior implemented.
-    # ================================================================ #    
-    
-    pass
+    # ================================================================ #
+
+    W1, b1 = self.params['W1'], self.params['b1']
+    W2, b2 = self.params['W2'], self.params['b2']
+
+    # Layer 1: affine -> ReLU
+    hidden, cache1 = affine_relu_forward(X, W1, b1)
+
+    # Layer 2: affine
+    scores, cache2 = affine_forward(hidden, W2, b2)
+
     # ================================================================ #
     # END YOUR CODE HERE
     # ================================================================ #
-    
+
     # If y is None then we are in test mode so just return scores
     if y is None:
       return scores
@@ -103,24 +114,40 @@ class TwoLayerNet(object):
     # ================================================================ #
     # YOUR CODE HERE:
     #   Implement the backward pass of the two-layer neural net.  Store
-    #   the loss as the variable 'loss' and store the gradients in the 
+    #   the loss as the variable 'loss' and store the gradients in the
     #   'grads' dictionary.  For the grads dictionary, grads['W1'] holds
     #   the gradient for W1, grads['b1'] holds the gradient for b1, etc.
     #   i.e., grads[k] holds the gradient for self.params[k].
     #
     #   Add L2 regularization, where there is an added cost 0.5*self.reg*W^2
-    #   for each W.  Be sure to include the 0.5 multiplying factor to 
+    #   for each W.  Be sure to include the 0.5 multiplying factor to
     #   match our implementation.
     #
     #   And be sure to use the layers you prior implemented.
-    # ================================================================ #    
-    
-    pass
+    # ================================================================ #
+
+    W1, W2 = self.params['W1'], self.params['W2']
+
+    # Compute softmax loss and gradient
+    loss, dscores = softmax_loss(scores, y)
+
+    # Add L2 regularization to loss
+    loss += 0.5 * self.reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
+
+    # Backprop through layer 2
+    dhidden, dW2, db2 = affine_backward(dscores, cache2)
+    grads['W2'] = dW2 + self.reg * W2
+    grads['b2'] = db2
+
+    # Backprop through layer 1
+    dx, dW1, db1 = affine_relu_backward(dhidden, cache1)
+    grads['W1'] = dW1 + self.reg * W1
+    grads['b1'] = db1
 
     # ================================================================ #
     # END YOUR CODE HERE
     # ================================================================ #
-    
+
     return loss, grads
 
 
@@ -173,13 +200,19 @@ class FullyConnectedNet(object):
     # ================================================================ #
     # YOUR CODE HERE:
     #   Initialize all parameters of the network in the self.params dictionary.
-    #   The weights and biases of layer 1 are W1 and b1; and in general the 
+    #   The weights and biases of layer 1 are W1 and b1; and in general the
     #   weights and biases of layer i are Wi and bi. The
     #   biases are initialized to zero and the weights are initialized
     #   so that each parameter has mean 0 and standard deviation weight_scale.
     # ================================================================ #
-    
-    pass
+
+    # Build layer dimensions: [input_dim, hidden1, hidden2, ..., num_classes]
+    layer_dims = [input_dim] + hidden_dims + [num_classes]
+
+    # Initialize weights and biases for each layer
+    for i in range(self.num_layers):
+      self.params['W%d' % (i + 1)] = weight_scale * np.random.randn(layer_dims[i], layer_dims[i + 1])
+      self.params['b%d' % (i + 1)] = np.zeros(layer_dims[i + 1])
 
     # ================================================================ #
     # END YOUR CODE HERE
@@ -233,12 +266,24 @@ class FullyConnectedNet(object):
     #   scores as the variable "scores".
     # ================================================================ #
 
-    pass
+    caches = {}
+    out = X
+
+    # Forward through hidden layers (L-1 layers with affine-relu)
+    for i in range(1, self.num_layers):
+      W = self.params['W%d' % i]
+      b = self.params['b%d' % i]
+      out, caches[i] = affine_relu_forward(out, W, b)
+
+    # Forward through output layer (affine only, no ReLU)
+    W = self.params['W%d' % self.num_layers]
+    b = self.params['b%d' % self.num_layers]
+    scores, caches[self.num_layers] = affine_forward(out, W, b)
 
     # ================================================================ #
     # END YOUR CODE HERE
     # ================================================================ #
-    
+
     # If test mode return early
     if mode == 'test':
       return scores
@@ -251,7 +296,24 @@ class FullyConnectedNet(object):
     #   Be sure your L2 regularization includes a 0.5 factor.
     # ================================================================ #
 
-    pass
+    # Compute softmax loss and gradient
+    loss, dout = softmax_loss(scores, y)
+
+    # Add L2 regularization to loss
+    for i in range(1, self.num_layers + 1):
+      W = self.params['W%d' % i]
+      loss += 0.5 * self.reg * np.sum(W * W)
+
+    # Backprop through output layer
+    dout, dW, db = affine_backward(dout, caches[self.num_layers])
+    grads['W%d' % self.num_layers] = dW + self.reg * self.params['W%d' % self.num_layers]
+    grads['b%d' % self.num_layers] = db
+
+    # Backprop through hidden layers
+    for i in range(self.num_layers - 1, 0, -1):
+      dout, dW, db = affine_relu_backward(dout, caches[i])
+      grads['W%d' % i] = dW + self.reg * self.params['W%d' % i]
+      grads['b%d' % i] = db
 
     # ================================================================ #
     # END YOUR CODE HERE
